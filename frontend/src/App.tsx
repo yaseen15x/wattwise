@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import CostCalculator from './CostCalculator'
 import './App.css'
 
 type Appliance = {
@@ -23,6 +24,8 @@ function App() {
   const [appliances, setAppliances] = useState<Appliance[]>([])
   const [name, setName] = useState('')
   const [power, setPower] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState('')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [loadError, setLoadError] = useState('')
@@ -43,6 +46,7 @@ function App() {
 
         if (!controller.signal.aborted) {
           setAppliances(data)
+          setSelectedId(data[0]?.id ?? '')
         }
       } catch (error) {
         if (!controller.signal.aborted) {
@@ -60,11 +64,26 @@ function App() {
     }
 
     void loadAppliances()
-
     return () => controller.abort()
   }, [])
 
-  async function addAppliance(event: FormEvent<HTMLFormElement>) {
+  function resetForm() {
+    setEditingId(null)
+    setName('')
+    setPower('')
+    setActionError('')
+  }
+
+  function startEditing(appliance: Appliance) {
+    setEditingId(appliance.id)
+    setName(appliance.name)
+    setPower(String(appliance.powerWatts))
+    setActionError('')
+    setNotice('')
+    document.getElementById('appliance-name')?.focus()
+  }
+
+  async function saveAppliance(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setActionError('')
     setNotice('')
@@ -84,25 +103,33 @@ function App() {
     setBusy(true)
 
     try {
-      const response = await fetch('/api/appliances', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          powerWatts: watts,
-        }),
-      })
+      const response = await fetch(
+        editingId ? `/api/appliances/${editingId}` : '/api/appliances',
+        {
+          method: editingId ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: name.trim(),
+            powerWatts: watts,
+          }),
+        },
+      )
 
       await checkResponse(response)
       const saved: Appliance = await response.json()
 
-      setAppliances((current) => [...current, saved])
-      setName('')
-      setPower('')
-      setNotice(`${saved.name} added.`)
+      setAppliances((current) =>
+        editingId
+          ? current.map((item) => item.id === saved.id ? saved : item)
+          : [...current, saved],
+      )
+
+      setSelectedId(saved.id)
+      setNotice(`${saved.name} ${editingId ? 'updated' : 'added'}.`)
+      resetForm()
     } catch (error) {
       setActionError(
-        error instanceof Error ? error.message : 'Could not add appliance.',
+        error instanceof Error ? error.message : 'Could not save appliance.',
       )
     } finally {
       setBusy(false)
@@ -126,6 +153,10 @@ function App() {
       setAppliances((current) =>
         current.filter((item) => item.id !== appliance.id),
       )
+
+      if (selectedId === appliance.id) setSelectedId('')
+      if (editingId === appliance.id) resetForm()
+
       setNotice(`${appliance.name} deleted.`)
     } catch (error) {
       setActionError(
@@ -140,6 +171,10 @@ function App() {
     a.name.localeCompare(b.name),
   )
 
+  const selectedAppliance = appliances.find(
+    (appliance) => appliance.id === selectedId,
+  )
+
   const disabled = loading || busy || Boolean(loadError)
 
   return (
@@ -151,13 +186,15 @@ function App() {
       </header>
 
       <div className="dashboard-grid">
-        <section className="panel" aria-labelledby="add-heading">
-          <h2 id="add-heading">Add an appliance</h2>
+        <section className="panel" aria-labelledby="form-heading">
+          <h2 id="form-heading">
+            {editingId ? 'Edit appliance' : 'Add an appliance'}
+          </h2>
           <p className="muted">
             Enter the power rating from its label or specifications.
           </p>
 
-          <form onSubmit={addAppliance}>
+          <form onSubmit={saveAppliance}>
             <fieldset disabled={disabled}>
               <label htmlFor="appliance-name">Appliance name</label>
               <input
@@ -183,10 +220,26 @@ function App() {
               />
 
               <button className="primary-button" type="submit">
-                {busy ? 'Saving changes…' : 'Add appliance'}
+                {busy
+                  ? 'Saving changes…'
+                  : editingId ? 'Save changes' : 'Add appliance'}
               </button>
+
+              {editingId && (
+                <button
+                  className="cancel-button"
+                  type="button"
+                  onClick={resetForm}
+                >
+                  Cancel
+                </button>
+              )}
             </fieldset>
           </form>
+
+          {actionError && (
+            <p className="error" role="alert">{actionError}</p>
+          )}
         </section>
 
         <section className="panel" aria-labelledby="saved-heading">
@@ -225,27 +278,67 @@ function App() {
                   <p className="muted">
                     {appliance.powerWatts.toLocaleString('en-GB', {
                       maximumFractionDigits: 3,
-                    })}{' '}
-                    W
+                    })} W
                   </p>
                 </div>
 
-                <button
-                  className="delete-button"
-                  disabled={disabled}
-                  onClick={() => void deleteAppliance(appliance)}
-                  aria-label={`Delete ${appliance.name}`}
-                >
-                  Delete
-                </button>
+                <div className="row-actions">
+                  <button
+                    disabled={disabled}
+                    onClick={() => startEditing(appliance)}
+                    aria-label={`Edit ${appliance.name}`}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="delete-button"
+                    disabled={disabled}
+                    onClick={() => void deleteAppliance(appliance)}
+                    aria-label={`Delete ${appliance.name}`}
+                  >
+                    Delete
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
         </section>
       </div>
 
-      {actionError && <p className="error" role="alert">{actionError}</p>}
       <p className="notice" role="status">{notice}</p>
+
+      <section className="panel calculator-panel" aria-labelledby="cost-heading">
+        <h2 id="cost-heading">Cost calculator</h2>
+
+        <label htmlFor="selected-appliance">Choose an appliance</label>
+        <select
+          id="selected-appliance"
+          value={selectedId}
+          onChange={(event) => setSelectedId(event.target.value)}
+          disabled={disabled || appliances.length === 0}
+        >
+          <option value="">Select an appliance</option>
+          {sortedAppliances.map((appliance) => (
+            <option key={appliance.id} value={appliance.id}>
+              {appliance.name} — {appliance.powerWatts} W
+            </option>
+          ))}
+        </select>
+
+        {selectedAppliance && !busy ? (
+          <CostCalculator
+            key={`${selectedAppliance.id}:${selectedAppliance.powerWatts}:${selectedAppliance.name}`}
+            applianceId={selectedAppliance.id}
+            applianceName={selectedAppliance.name}
+          />
+        ) : (
+          <p className="muted">
+            {busy
+              ? 'Saving appliance changes…'
+              : 'Select a saved appliance to calculate its running cost.'}
+          </p>
+        )}
+      </section>
     </main>
   )
 }
