@@ -104,6 +104,11 @@ function TimelineTrack({
 
       <div
         className="timeline-track"
+        title={
+          hasRun
+            ? `${label}: ${clock(start)} to ${clock(start + duration)} · ${duration} minutes`
+            : 'Run the optimiser to see a recommendation.'
+        }
         role="img"
         aria-label={
           hasRun
@@ -433,6 +438,33 @@ export default function ScheduleOptimiser({ appliance }: Props) {
                   strokeDasharray="4 5"
                   vectorEffect="non-scaling-stroke"
                 />
+                                <rect
+                  className="tariff-hover-zone"
+                  x="0"
+                  y="0"
+                  width={splitX}
+                  height="160"
+                  fill="transparent"
+                  aria-hidden="true"
+                >
+                  <title>
+                    {`00:00–${clock(preview.changeover)}: ${money(preview.firstRate)} per kWh`}
+                  </title>
+                </rect>
+
+                <rect
+                  className="tariff-hover-zone"
+                  x={splitX}
+                  y="0"
+                  width={1000 - splitX}
+                  height="160"
+                  fill="transparent"
+                  aria-hidden="true"
+                >
+                  <title>
+                    {`${clock(preview.changeover)}–24:00: ${money(preview.secondRate)} per kWh`}
+                  </title>
+                </rect>
               </svg>
 
               <div className="time-axis" aria-hidden="true">

@@ -1042,3 +1042,119 @@
     font-size: 16px;
   }
 }
+
+/* Readability refinements */
+.sidebar-label,
+.eyebrow {
+  font-size: 10px;
+}
+
+.nav-item,
+.device-copy strong {
+  font-size: 13px;
+}
+
+.device-copy small,
+.sidebar-note small,
+.sidebar-message {
+  font-size: 12px;
+}
+
+.page-description,
+.muted {
+  font-size: 14px;
+}
+
+.field label {
+  font-size: 12px;
+}
+
+.field input {
+  font-size: 14px;
+  min-height: 44px;
+}
+
+.field-help,
+.method-note,
+.calculation-note {
+  font-size: 12px;
+  color: #606854;
+}
+
+.chart-heading,
+.timeline-row-heading {
+  font-size: 12px;
+}
+
+.tariff-legend,
+.timeline-row-heading .mono,
+.time-axis,
+.track-placeholder {
+  font-size: 11px;
+}
+
+.cost-comparison span,
+.recommendation-caption,
+.recommendation-empty p:last-child {
+  font-size: 12px;
+}
+
+.primary-button {
+  font-size: 13px;
+  min-height: 48px;
+}
+
+.tag {
+  font-size: 11px;
+}
+
+/* Bring the planner higher on laptop screens */
+@media (min-width: 1001px) {
+  .topbar {
+    min-height: 70px;
+  }
+
+  .app-layout {
+    min-height: calc(100vh - 70px);
+  }
+
+  .workspace {
+    padding-top: 26px;
+  }
+
+  .page-heading {
+    margin-bottom: 24px;
+  }
+
+  .page-heading h1 {
+    font-size: clamp(28px, 2.6vw, 38px);
+  }
+
+  .page-heading .eyebrow {
+    margin-bottom: 8px;
+  }
+}
+
+.tariff-hover-zone {
+  cursor: help;
+}
+
+/* Keep mobile inputs comfortably readable */
+@media (max-width: 700px) {
+  .field input {
+    font-size: 16px;
+  }
+
+  .tariff-legend {
+    gap: 10px;
+  }
+
+  .timeline-row-heading {
+    gap: 8px;
+  }
+
+  .track-placeholder {
+    padding-top: 6px;
+    font-size: 10px;
+  }
+}
