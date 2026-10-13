@@ -1158,3 +1158,119 @@
     font-size: 10px;
   }
 }
+
+/* Stronger contrast: sage workspace, charcoal navigation */
+:root {
+  --paper: #e3e7db;
+  --surface: #f8f8f1;
+  --border: #cbd2c0;
+  --muted: #626b57;
+}
+
+.topbar {
+  background: #e9eddf;
+  border-bottom-color: #c5cdb8;
+}
+
+.workspace {
+  background: var(--paper);
+}
+
+.sidebar {
+  background: #293026;
+  border-right-color: #3d4736;
+  color: #f1f4e9;
+}
+
+.sidebar-label,
+.small-count,
+.sidebar-message {
+  color: #b7c4a7;
+}
+
+.nav-item {
+  color: #dde5d3;
+}
+
+.nav-item.active,
+.nav-item.active:hover:not(:disabled) {
+  background: var(--lime);
+  color: #29331c;
+}
+
+.nav-item:hover:not(:disabled),
+.device-button:hover:not(:disabled) {
+  background: #394431;
+  border-color: #71805e;
+}
+
+.device-button {
+  color: #edf2e5;
+}
+
+.device-button.selected {
+  background: #3b4733;
+  border-color: #849766;
+}
+
+.device-copy small {
+  color: #becbb0;
+}
+
+.device-icon {
+  background: #303b29;
+  border-color: #60704e;
+}
+
+.selected .selection-dot {
+  background: var(--lime);
+}
+
+.add-device-button {
+  color: #d2dfbf;
+  border-color: #778865;
+}
+
+.add-device-button:hover:not(:disabled) {
+  background: #394431;
+  border-color: #a0b580;
+}
+
+.sidebar-note {
+  border-top-color: #526044;
+}
+
+.sidebar-note small {
+  color: #bac7aa;
+}
+
+.note-mark {
+  color: var(--lime);
+}
+
+.chapter-number {
+  color: #a5b293;
+}
+
+.surface {
+  box-shadow: 0 3px 12px rgb(39 50 28 / 4%);
+}
+
+.day-panel {
+  background: #eef2e4;
+}
+
+.timeline-track {
+  background-color: #e3e9d7;
+  border-color: #cdd7bd;
+}
+
+.recommendation-panel {
+  background: #252f21;
+}
+
+@media (max-width: 1000px) {
+  .sidebar {
+    border-bottom-color: #526044;
+  }
+}
