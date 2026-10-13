@@ -6,6 +6,15 @@ A home energy simulator that calculates appliance running costs and compares whe
 
 Built with Java, Spring Boot, React, TypeScript and PostgreSQL.
 
+## Screenshots
+
+### Energy planner
+![Energy planner](docs/images/energy-planner.png)
+
+### Recommended time
+![Time recommendation calculator](docs/images/energy-planner-2.png)
+
+
 ## What it does
 
 - Save, edit and delete appliances with their power ratings.
