@@ -249,3 +249,41 @@ form + .error {
     flex-direction: column;
   }
 }
+
+.optimiser-panel {
+  margin-top: 24px;
+}
+
+.optimiser-panel legend {
+  padding: 0;
+  margin-bottom: 20px;
+  color: #76e0a4;
+  font-weight: 700;
+}
+
+.optimiser-panel .error {
+  margin-top: 20px;
+}
+
+.schedule-cost {
+  margin-top: 12px;
+  margin-bottom: 0;
+}
+
+.savings-summary {
+  margin-top: 20px;
+  margin-bottom: 0;
+  color: #76e0a4;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.window-warning {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid #8b7743;
+  border-radius: 8px;
+  background: #302b1c;
+  color: #f2d58a;
+  line-height: 1.6;
+}

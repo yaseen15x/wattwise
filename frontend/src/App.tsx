@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import CostCalculator from './CostCalculator'
+import ScheduleOptimiser from './ScheduleOptimiser'
 import './App.css'
 
 type Appliance = {
@@ -339,6 +340,12 @@ function App() {
           </p>
         )}
       </section>
+      {selectedAppliance && !busy && (
+        <ScheduleOptimiser
+          key={`schedule:${selectedAppliance.id}:${selectedAppliance.powerWatts}:${selectedAppliance.name}`}
+          appliance={selectedAppliance}
+        />
+      )}
     </main>
   )
 }
