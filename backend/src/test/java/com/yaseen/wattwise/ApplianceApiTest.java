@@ -7,7 +7,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -25,32 +28,22 @@ class ApplianceApiTest {
     private MockMvc mvc;
 
     @Test
-    void createsCalculatesUpdatesAndDeletesAppliance() throws Exception {
-        String response = mvc.perform(post("/api/appliances")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "name": "Heater",
-                                  "powerWatts": 2000
-                                }
-                                """))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").isNotEmpty())
-                .andExpect(jsonPath("$.name").value("Heater"))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+    void supportsApplianceLifecycleWithinOneSession() throws Exception {
+        MockHttpSession visitor = new MockHttpSession();
+        String id = createAppliance(visitor);
 
-        String id = JsonPath.read(response, "$.id");
-        String applianceUrl = "/api/appliances/" + id;
+        mvc.perform(get("/api/appliances").session(visitor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(id));
 
-        // A separate request must retrieve the saved appliance.
-        mvc.perform(get(applianceUrl))
+        mvc.perform(get("/api/appliances/{id}", id).session(visitor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Heater"))
                 .andExpect(jsonPath("$.powerWatts").value(2000));
 
-        mvc.perform(post(applianceUrl + "/calculate")
+        mvc.perform(post("/api/appliances/{id}/calculate", id)
+                        .session(visitor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -62,7 +55,8 @@ class ApplianceApiTest {
                 .andExpect(jsonPath("$.energyKwh").value(6))
                 .andExpect(jsonPath("$.costGbp").value(1.50));
 
-        mvc.perform(put(applianceUrl)
+        mvc.perform(put("/api/appliances/{id}", id)
+                        .session(visitor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -71,16 +65,14 @@ class ApplianceApiTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(id));
+                .andExpect(jsonPath("$.name").value("Small heater"));
 
-        // Verify the update persisted beyond the PUT request.
-        mvc.perform(get(applianceUrl))
+        mvc.perform(get("/api/appliances/{id}", id).session(visitor))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Small heater"))
                 .andExpect(jsonPath("$.powerWatts").value(1000));
 
-        // Calculations must now use the updated power.
-        mvc.perform(post(applianceUrl + "/calculate")
+        mvc.perform(post("/api/appliances/{id}/calculate", id)
+                        .session(visitor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -92,32 +84,40 @@ class ApplianceApiTest {
                 .andExpect(jsonPath("$.energyKwh").value(3))
                 .andExpect(jsonPath("$.costGbp").value(0.75));
 
-        mvc.perform(delete(applianceUrl))
+        mvc.perform(delete("/api/appliances/{id}", id).session(visitor))
                 .andExpect(status().isNoContent());
 
-        mvc.perform(get(applianceUrl))
+        mvc.perform(get("/api/appliances/{id}", id).session(visitor))
                 .andExpect(status().isNotFound());
     }
 
     @Test
-    void rejectsNegativePower() throws Exception {
-        mvc.perform(post("/api/appliances")
+    void preventsAccessFromAnotherVisitor() throws Exception {
+        MockHttpSession owner = new MockHttpSession();
+        MockHttpSession otherVisitor = new MockHttpSession();
+        String id = createAppliance(owner);
+
+        mvc.perform(get("/api/appliances").session(otherVisitor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+
+        mvc.perform(get("/api/appliances/{id}", id)
+                        .session(otherVisitor))
+                .andExpect(status().isNotFound());
+
+        mvc.perform(put("/api/appliances/{id}", id)
+                        .session(otherVisitor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "name": "Invalid heater",
-                                  "powerWatts": -100
+                                  "name": "Changed by another visitor",
+                                  "powerWatts": 10
                                 }
                                 """))
-                .andExpect(status().isBadRequest());
-    }
+                .andExpect(status().isNotFound());
 
-    @Test
-    void cannotCalculateForMissingAppliance() throws Exception {
-        mvc.perform(post(
-                        "/api/appliances/"
-                                + "00000000-0000-0000-0000-000000000000"
-                                + "/calculate")
+        mvc.perform(post("/api/appliances/{id}/calculate", id)
+                        .session(otherVisitor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -126,5 +126,68 @@ class ApplianceApiTest {
                                 }
                                 """))
                 .andExpect(status().isNotFound());
+
+        mvc.perform(delete("/api/appliances/{id}", id)
+                        .session(otherVisitor))
+                .andExpect(status().isNotFound());
+
+        // A request without the owner's session cannot access it either.
+        mvc.perform(get("/api/appliances/{id}", id))
+                .andExpect(status().isNotFound());
+
+        // Failed attempts must not change or remove the owner's record.
+        mvc.perform(get("/api/appliances/{id}", id).session(owner))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Heater"))
+                .andExpect(jsonPath("$.powerWatts").value(2000));
+    }
+
+    @Test
+    void rejectsNegativePower() throws Exception {
+        mvc.perform(post("/api/appliances")
+                        .session(new MockHttpSession())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Invalid appliance",
+                                  "powerWatts": -1
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void returnsNotFoundWhenCalculatingMissingAppliance() throws Exception {
+        mvc.perform(post(
+                        "/api/appliances/{id}/calculate",
+                        UUID.randomUUID()
+                )
+                        .session(new MockHttpSession())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "durationHours": 3,
+                                  "rateGbpPerKwh": 0.25
+                                }
+                                """))
+                .andExpect(status().isNotFound());
+    }
+
+    private String createAppliance(MockHttpSession session) throws Exception {
+        String body = mvc.perform(post("/api/appliances")
+                        .session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Heater",
+                                  "powerWatts": 2000
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        return JsonPath.read(body, "$.id");
     }
 }

@@ -9,6 +9,7 @@ import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 @Entity
@@ -18,6 +19,9 @@ public class Appliance {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+
+    @Column(name = "visitor_id", nullable = false, updatable = false)
+    private UUID visitorId;
 
     @Column(nullable = false, length = 100)
     private String name;
@@ -36,7 +40,12 @@ public class Appliance {
     protected Appliance() {
     }
 
-    public Appliance(String name, BigDecimal powerWatts) {
+    public Appliance(
+            UUID visitorId,
+            String name,
+            BigDecimal powerWatts) {
+
+        this.visitorId = Objects.requireNonNull(visitorId);
         this.name = name;
         this.powerWatts = powerWatts;
         this.createdAt = Instant.now();

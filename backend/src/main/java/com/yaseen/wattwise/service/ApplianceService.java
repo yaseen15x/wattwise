@@ -7,7 +7,6 @@ import com.yaseen.wattwise.dto.SavedApplianceCalculationRequest;
 import com.yaseen.wattwise.dto.UpdateApplianceRequest;
 import com.yaseen.wattwise.model.Appliance;
 import com.yaseen.wattwise.repository.ApplianceRepository;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,13 +25,18 @@ public class ApplianceService {
     public ApplianceService(
             ApplianceRepository repository,
             EnergyCalculator calculator) {
+
         this.repository = repository;
         this.calculator = calculator;
     }
 
     @Transactional
-    public ApplianceResponse create(CreateApplianceRequest request) {
+    public ApplianceResponse create(
+            UUID visitorId,
+            CreateApplianceRequest request) {
+
         Appliance appliance = new Appliance(
+                visitorId,
                 request.name().strip(),
                 request.powerWatts()
         );
@@ -41,24 +45,25 @@ public class ApplianceService {
     }
 
     @Transactional(readOnly = true)
-    public List<ApplianceResponse> findAll() {
-        return repository.findAll(Sort.by("name", "id"))
+    public List<ApplianceResponse> findAll(UUID visitorId) {
+        return repository.findAllByVisitorIdOrderByNameAscIdAsc(visitorId)
                 .stream()
                 .map(this::toResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public ApplianceResponse findById(UUID id) {
-        return toResponse(findAppliance(id));
+    public ApplianceResponse findById(UUID visitorId, UUID id) {
+        return toResponse(findAppliance(visitorId, id));
     }
 
     @Transactional
     public ApplianceResponse update(
+            UUID visitorId,
             UUID id,
             UpdateApplianceRequest request) {
 
-        Appliance appliance = findAppliance(id);
+        Appliance appliance = findAppliance(visitorId, id);
 
         appliance.updateDetails(
                 request.name().strip(),
@@ -69,17 +74,18 @@ public class ApplianceService {
     }
 
     @Transactional
-    public void delete(UUID id) {
-        Appliance appliance = findAppliance(id);
+    public void delete(UUID visitorId, UUID id) {
+        Appliance appliance = findAppliance(visitorId, id);
         repository.delete(appliance);
     }
 
     @Transactional(readOnly = true)
     public EnergyCalculationResponse calculate(
+            UUID visitorId,
             UUID id,
             SavedApplianceCalculationRequest request) {
 
-        Appliance appliance = findAppliance(id);
+        Appliance appliance = findAppliance(visitorId, id);
 
         BigDecimal energy = calculator.calculateEnergyKwh(
                 appliance.getPowerWatts(),
@@ -94,8 +100,8 @@ public class ApplianceService {
         return new EnergyCalculationResponse(energy, cost);
     }
 
-    private Appliance findAppliance(UUID id) {
-        return repository.findById(id)
+    private Appliance findAppliance(UUID visitorId, UUID id) {
+        return repository.findByIdAndVisitorId(id, visitorId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Appliance not found"
