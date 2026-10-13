@@ -1,11 +1,18 @@
 :root {
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  color: #edf3ef;
-  background: #131816;
+  font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+  color: #252a23;
+  background: #f5f4ee;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  color-scheme: dark;
+  color-scheme: light;
+
+  --paper: #f5f4ee;
+  --surface: #fffef9;
+  --ink: #252a23;
+  --muted: #70766a;
+  --border: #dddfd3;
+  --lime: #d5ef83;
 }
 
 * {
@@ -18,21 +25,32 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
+button,
+a,
+input,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
 button {
-  padding: 0.7rem 1rem;
-  border: 1px solid #43554b;
-  border-radius: 8px;
-  background: #29362f;
-  color: #edf3ef;
+  min-height: 40px;
+  padding: 10px 15px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
   cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
 }
 
 button:hover:not(:disabled) {
-  filter: brightness(1.15);
+  background: #eaece1;
+  border-color: #aeb6a0;
 }
 
 button:disabled {
@@ -40,8 +58,12 @@ button:disabled {
   cursor: not-allowed;
 }
 
+a {
+  color: inherit;
+}
+
 :focus-visible {
-  outline: 3px solid #76e0a4;
+  outline: 3px solid #54742c;
   outline-offset: 4px;
 }
 
@@ -50,4 +72,72 @@ h2,
 h3,
 p {
   margin-top: 0;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 600;
+}
+
+h2 {
+  font-size: 22px;
+  letter-spacing: -0.7px;
+}
+
+p {
+  line-height: 1.6;
+}
+
+input,
+select {
+  width: 100%;
+  min-width: 0;
+  height: 45px;
+  padding: 10px 12px;
+  border: 1px solid #d4d8c9;
+  border-radius: 6px;
+  background: #fffefb;
+  color: var(--ink);
+}
+
+input::placeholder {
+  color: #888d80;
+}
+
+input:disabled {
+  background: #efefe7;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+legend {
+  padding: 0;
+}
+
+::selection {
+  background: var(--lime);
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
 }
