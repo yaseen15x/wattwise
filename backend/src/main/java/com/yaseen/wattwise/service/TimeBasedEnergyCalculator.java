@@ -22,6 +22,30 @@ public class TimeBasedEnergyCalculator {
             ScheduledAppliance appliance,
             List<TariffPeriod> tariffs) {
 
+        BigDecimal weightedTotal = calculateCostWeight(appliance, tariffs);
+
+        BigDecimal energyKwh = appliance.powerWatts()
+                .multiply(BigDecimal.valueOf(appliance.durationMinutes()))
+                .divide(
+                        WATT_MINUTES_PER_KWH,
+                        6,
+                        RoundingMode.HALF_UP
+                );
+
+        BigDecimal costGbp = weightedTotal.divide(
+                WATT_MINUTES_PER_KWH,
+                2,
+                RoundingMode.HALF_UP
+        );
+
+        return new EnergyCalculationResponse(energyKwh, costGbp);
+    }
+
+    // Allows the optimiser to compare costs before division or rounding.
+    BigDecimal calculateCostWeight(
+            ScheduledAppliance appliance,
+            List<TariffPeriod> tariffs) {
+
         if (appliance == null) {
             throw new IllegalArgumentException("Appliance is required");
         }
@@ -39,21 +63,7 @@ public class TimeBasedEnergyCalculator {
             weightedTotal = weightedTotal.add(weightedMinute);
         }
 
-        BigDecimal energyKwh = appliance.powerWatts()
-                .multiply(BigDecimal.valueOf(appliance.durationMinutes()))
-                .divide(
-                        WATT_MINUTES_PER_KWH,
-                        6,
-                        RoundingMode.HALF_UP
-                );
-
-        BigDecimal costGbp = weightedTotal.divide(
-                WATT_MINUTES_PER_KWH,
-                2,
-                RoundingMode.HALF_UP
-        );
-
-        return new EnergyCalculationResponse(energyKwh, costGbp);
+        return weightedTotal;
     }
 
     private BigDecimal[] buildMinuteRates(List<TariffPeriod> tariffs) {
