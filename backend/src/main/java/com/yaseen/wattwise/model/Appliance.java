@@ -34,13 +34,17 @@ public class Appliance {
     private Instant createdAt;
 
     protected Appliance() {
-        // Required by JPA when loading records from the database.
     }
 
     public Appliance(String name, BigDecimal powerWatts) {
         this.name = name;
         this.powerWatts = powerWatts;
         this.createdAt = Instant.now();
+    }
+
+    public void updateDetails(String name, BigDecimal powerWatts) {
+        this.name = name;
+        this.powerWatts = powerWatts;
     }
 
     public UUID getId() {
