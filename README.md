@@ -6,26 +6,39 @@ A home energy simulator that calculates appliance running costs and compares whe
 
 Built with Java, Spring Boot, React, TypeScript and PostgreSQL.
 
+## Live demo
+
+**[Try WattWise](https://wattwise-frontend-rimw.onrender.com/)**
+
+Add appliances, estimate their running costs, and compare schedules using editable electricity tariffs.
+
+- No account required. Each browser session has its own appliance list.
+- Sessions expire after two hours of inactivity. When a session expires or its cookie is cleared, its saved appliances are no longer accessible through the demo.
+- The backend may take a little time to respond after inactivity.
+- Electricity rates are user-entered examples, not live prices.
+
 ## Screenshots
 
 ### Energy planner
+
 ![Energy planner](docs/images/energy-planner.png)
 
-### Recommended time
-![Time recommendation calculator](docs/images/energy-planner-2.png)
+### Recommended running time
 
+![Recommended running time](docs/images/energy-planner-2.png)
 
-## What it does
+## Features
 
 - Save, edit and delete appliances with their power ratings.
 - Calculate energy consumption in kWh and estimated cost in GBP.
 - Calculate household totals with a per-appliance breakdown through the API.
-- Calculate costs for runs that span different tariff periods.
-- Recommend a cheaper start time within an allowed scheduling window.
-- Visualise tariff periods and compare original and recommended schedules.
-- Store appliances in PostgreSQL.
+- Calculate costs for runs spanning different tariff periods.
+- Recommend a start time within an allowed scheduling window.
+- Visualise tariffs and compare original and recommended schedules.
+- Keep saved appliances separate between anonymous visitor sessions.
+- Persist appliance records and server-side sessions in PostgreSQL.
 
-Electricity rates are entered manually. WattWise does not fetch live prices or control appliances.
+WattWise does not fetch live electricity prices or control appliances.
 
 ## Example
 
@@ -38,7 +51,9 @@ With a tariff of £0.30/kWh before 07:00 and £0.10/kWh afterwards:
 | Original | 06:00–07:00 | £0.60 |
 | Recommended | 07:00–08:00 | £0.20 |
 
-For an allowed window of 06:00–10:00, the recommended run saves £0.40 in this example while using the same amount of energy.
+For an allowed window of 06:00–10:00, moving the run saves £0.40 in this example while using the same amount of energy.
+
+These are illustrative rates, not a claim about a particular electricity supplier.
 
 ## Tech stack
 
@@ -46,18 +61,40 @@ For an allowed window of 06:00–10:00, the recommended run saves £0.40 in this
 |---|---|
 | Backend | Java 21, Spring Boot, Spring Web MVC |
 | Validation | Jakarta Bean Validation |
-| Persistence | Spring Data JPA, Hibernate, PostgreSQL 17 |
+| Persistence | Spring Data JPA, Hibernate, PostgreSQL |
+| Session storage | Spring Session JDBC |
 | Database migrations | Flyway |
 | Frontend | React, TypeScript, Vite |
 | Testing | JUnit, MockMvc, Testcontainers |
-| Containers | Docker Compose, Nginx |
+| Local containers | Docker Compose, Nginx, PostgreSQL 17 |
 | Continuous integration | GitHub Actions |
+| Hosting | Render Static Site, Render Web Service, Neon PostgreSQL |
 
 ## Architecture
 
-The browser loads the React application from Nginx. Requests to `/api/` are forwarded to the Spring Boot backend, which reads and writes appliance records in PostgreSQL.
+The React frontend sends requests to relative `/api/` paths. The request routing depends on how the application is running:
 
-The backend separates HTTP controllers, request and response DTOs, calculation services and persistence. Flyway manages the database schema, and Hibernate validates the entity mappings against it.
+| Environment | Frontend delivery | API routing |
+|---|---|---|
+| Local development | Vite development server | Vite proxies `/api/` to Spring Boot |
+| Local Docker | Nginx | Nginx proxies `/api/` to the backend container |
+| Live demo | Render Static Site | Render rewrites `/api/` to the backend Web Service |
+
+The Spring Boot backend separates HTTP controllers, request and response DTOs, calculation services and persistence.
+
+Spring Data JPA handles appliance records. Flyway manages database migrations, and Hibernate validates entity mappings against the schema.
+
+The live backend connects to Neon PostgreSQL. Local Docker uses a PostgreSQL container with a named volume.
+
+### Visitor sessions
+
+On the first saved-appliance request, the backend creates a session and assigns a visitor ID. Appliance queries and mutations are scoped to that visitor.
+
+The browser receives a `WATTWISE_SESSION` cookie. The cookie is HTTP-only, uses `SameSite=Lax`, and is marked Secure in the HTTPS deployment.
+
+Spring Session JDBC stores server-side sessions in PostgreSQL. An unexpired session can survive a backend restart when the browser retains its cookie.
+
+This is anonymous session isolation, not account-based authentication. There is no login, account recovery or cross-device synchronisation.
 
 ## Run with Docker
 
@@ -93,9 +130,7 @@ docker compose up --build -d
 
 The first build downloads dependencies and container images, so it may take a few minutes.
 
-Open:
-
-http://localhost:3000
+Open [http://localhost:3000](http://localhost:3000).
 
 ### 4. Check the services
 
@@ -115,7 +150,9 @@ docker compose logs -f backend
 docker compose down
 ```
 
-Appliance data is retained in the PostgreSQL named volume. Running `docker compose down -v` deletes that volume and its data.
+The PostgreSQL named volume retains database contents.
+
+Running `docker compose down -v` deletes that volume and its data.
 
 The database password is set when the volume is first initialised. Changing `.env` afterwards does not automatically change the password stored in PostgreSQL.
 
@@ -123,8 +160,8 @@ The database password is set when the volume is first initialised. Changing `.en
 
 ### Requirements
 
-- Java 21 or later
-- Node.js 22.14 or later within the Node 22 release line
+- Java 21
+- Node.js and npm; local development was tested with Node.js 22.14
 - Docker with Docker Compose
 
 Create the root `.env` file as described above.
@@ -147,7 +184,7 @@ PostgreSQL is available locally on port `5433`.
 
 ### Start the backend
 
-In a separate terminal:
+In a separate terminal, starting from the project root:
 
 ```bash
 cd backend
@@ -155,7 +192,7 @@ chmod +x mvnw
 ./mvnw spring-boot:run
 ```
 
-The backend runs at http://localhost:8080.
+The backend runs at [http://localhost:8080](http://localhost:8080).
 
 When launched from the backend directory, it reads the root `.env` file.
 
@@ -169,7 +206,7 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:5173.
+Open [http://localhost:5173](http://localhost:5173).
 
 The Vite development server proxies `/api/` requests to the backend.
 
@@ -191,7 +228,10 @@ The test suite covers:
 - Scheduling window constraints.
 - Schedule optimisation.
 - Application startup.
-- Saved appliance API behaviour.
+- Saved appliance creation, retrieval, updates, deletion and calculation.
+- Invalid input and missing appliances.
+- Prevention of access to another visitor's appliances.
+- Session cookie issuance and the HTTP-only attribute.
 
 Integration tests use Testcontainers to start a temporary PostgreSQL database. They do not use the application's normal database.
 
@@ -220,16 +260,18 @@ GitHub Actions runs backend tests and packaging, plus frontend linting and the p
 | POST | `/api/household/calculate` | Calculate a household breakdown |
 | POST | `/api/energy/calculate-scheduled` | Calculate a run across tariff periods |
 | POST | `/api/energy/optimise` | Recommend a start time |
-| GET | `/api/appliances` | List saved appliances |
-| POST | `/api/appliances` | Create an appliance |
-| GET | `/api/appliances/{id}` | Retrieve an appliance |
-| PUT | `/api/appliances/{id}` | Update an appliance |
-| DELETE | `/api/appliances/{id}` | Delete an appliance |
+| GET | `/api/appliances` | List the current visitor's appliances |
+| POST | `/api/appliances` | Create an appliance for the current visitor |
+| GET | `/api/appliances/{id}` | Retrieve a visitor-owned appliance |
+| PUT | `/api/appliances/{id}` | Update a visitor-owned appliance |
+| DELETE | `/api/appliances/{id}` | Delete a visitor-owned appliance |
 | POST | `/api/appliances/{id}/calculate` | Calculate a saved appliance's running cost |
 
-### Calculate energy and cost
+Saved-appliance requests must retain the session cookie between calls. Requests for another visitor's appliance return `404`.
 
-With the Docker application running:
+The examples below use the local Docker application on port `3000`. For local development, use port `8080` to call the backend directly.
+
+### Calculate energy and cost
 
 ```bash
 curl -X POST http://localhost:3000/api/energy/calculate \
@@ -249,6 +291,38 @@ Example response:
   "costGbp": 1.50
 }
 ```
+
+### Create and list saved appliances
+
+Use a temporary cookie file to retain the same visitor session:
+
+```bash
+COOKIE_JAR=$(mktemp)
+
+curl -c "$COOKIE_JAR" \
+  http://localhost:3000/api/appliances
+
+curl -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+  -X POST http://localhost:3000/api/appliances \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Heater",
+    "powerWatts": 2000
+  }'
+
+curl -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+  http://localhost:3000/api/appliances
+```
+
+The final response should include the created heater. Keep using the same cookie file for subsequent requests in this session.
+
+When finished:
+
+```bash
+rm "$COOKIE_JAR"
+```
+
+Removing the file discards this client's session cookie; it does not delete appliance records.
 
 ### Optimise a schedule
 
@@ -296,8 +370,6 @@ Example response:
 
 Times in the API are minutes after midnight: `360` means 06:00, `420` means 07:00 and `1440` means midnight at the end of the day.
 
-For local development, use port `8080` instead of `3000` to call the backend directly.
-
 ## Calculation and optimisation approach
 
 Energy consumption is calculated as:
@@ -314,6 +386,35 @@ Candidate costs are compared before rounding to avoid choosing between schedules
 
 Money calculations use Java's `BigDecimal`, with displayed costs rounded to two decimal places using `HALF_UP`.
 
+If the original schedule falls outside the allowed window, the recommended schedule meets the restrictions but may cost more. The response identifies this through `originalMeetsWindow` and the savings value.
+
+## Deployment
+
+The live demo uses:
+
+- **Render Static Site** for the React production build.
+- **Render Docker Web Service** for Spring Boot.
+- **Neon PostgreSQL** for appliance and session storage.
+
+The frontend build uses:
+
+```text
+Root directory: frontend
+Build command: npm ci && npm run build
+Publish directory: dist
+```
+
+The frontend's rewrite rules are applied in this order:
+
+| Source | Destination | Action |
+|---|---|---|
+| `/api/*` | `https://wattwise-4skk.onrender.com/api/*` | Rewrite |
+| `/*` | `/index.html` | Rewrite |
+
+The backend builds from `backend/Dockerfile`, with `backend` as its build context. Its health check path is `/api/hello`.
+
+Database credentials are configured as backend environment variables and are not included in the frontend.
+
 ## Assumptions and limitations
 
 - Power consumption is assumed to remain constant throughout a run. Real appliances may cycle or vary their power draw.
@@ -324,26 +425,31 @@ Money calculations use Java's `BigDecimal`, with displayed costs rounded to two 
 - The optimiser handles one appliance at a time.
 - The frontend supports two tariff periods; the scheduled calculation API accepts a list of periods.
 - Appliance records are saved, but calculation results and tariff scenarios are not persisted.
-- Authentication and per-user data isolation are not implemented. The current application is intended for local use and demonstration.
+- Visitor separation uses anonymous sessions. User accounts, login and cross-device access are not implemented.
+- Sessions expire after two hours of inactivity. Losing or clearing the session cookie also prevents access to that session's appliances.
+- Session expiry does not automatically delete the associated appliance records.
+- The hosted demo may respond slowly when the backend resumes after inactivity.
 
 ## Project structure
 
 ```text
 wattwise/
-├── .github/workflows/     # Continuous integration
+├── .github/workflows/       # Continuous integration
 ├── backend/
-│   ├── src/main/java/    # Controllers, DTOs, models and services
+│   ├── src/main/java/      # Configuration, controllers, DTOs, models and services
 │   ├── src/main/resources/
-│   │   └── db/migration/ # Flyway migrations
-│   ├── src/test/java/    # Unit and integration tests
+│   │   └── db/migration/   # Appliance and session schema migrations
+│   ├── src/test/java/      # Unit and PostgreSQL integration tests
 │   ├── Dockerfile
 │   └── pom.xml
 ├── frontend/
-│   ├── src/             # React components and styles
-│   ├── public/          # Static assets
+│   ├── src/               # React components and styles
+│   ├── public/            # Static assets
 │   ├── Dockerfile
 │   └── nginx.conf
-└── compose.yaml
+├── docs/images/           # README screenshots
+├── compose.yaml
+└── README.md
 ```
 
 ## Author
