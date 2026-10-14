@@ -1,17 +1,18 @@
 package com.yaseen.wattwise;
 
 import com.jayway.jsonpath.JsonPath;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -29,21 +30,21 @@ class ApplianceApiTest {
 
     @Test
     void supportsApplianceLifecycleWithinOneSession() throws Exception {
-        MockHttpSession visitor = new MockHttpSession();
+        Cookie visitor = newVisitor();
         String id = createAppliance(visitor);
 
-        mvc.perform(get("/api/appliances").session(visitor))
+        mvc.perform(get("/api/appliances").cookie(visitor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].id").value(id));
 
-        mvc.perform(get("/api/appliances/{id}", id).session(visitor))
+        mvc.perform(get("/api/appliances/{id}", id).cookie(visitor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Heater"))
                 .andExpect(jsonPath("$.powerWatts").value(2000));
 
         mvc.perform(post("/api/appliances/{id}/calculate", id)
-                        .session(visitor)
+                        .cookie(visitor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -56,7 +57,7 @@ class ApplianceApiTest {
                 .andExpect(jsonPath("$.costGbp").value(1.50));
 
         mvc.perform(put("/api/appliances/{id}", id)
-                        .session(visitor)
+                        .cookie(visitor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -67,12 +68,12 @@ class ApplianceApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Small heater"));
 
-        mvc.perform(get("/api/appliances/{id}", id).session(visitor))
+        mvc.perform(get("/api/appliances/{id}", id).cookie(visitor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.powerWatts").value(1000));
 
         mvc.perform(post("/api/appliances/{id}/calculate", id)
-                        .session(visitor)
+                        .cookie(visitor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -84,29 +85,29 @@ class ApplianceApiTest {
                 .andExpect(jsonPath("$.energyKwh").value(3))
                 .andExpect(jsonPath("$.costGbp").value(0.75));
 
-        mvc.perform(delete("/api/appliances/{id}", id).session(visitor))
+        mvc.perform(delete("/api/appliances/{id}", id).cookie(visitor))
                 .andExpect(status().isNoContent());
 
-        mvc.perform(get("/api/appliances/{id}", id).session(visitor))
+        mvc.perform(get("/api/appliances/{id}", id).cookie(visitor))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     void preventsAccessFromAnotherVisitor() throws Exception {
-        MockHttpSession owner = new MockHttpSession();
-        MockHttpSession otherVisitor = new MockHttpSession();
+        Cookie owner = newVisitor();
+        Cookie otherVisitor = newVisitor();
         String id = createAppliance(owner);
 
-        mvc.perform(get("/api/appliances").session(otherVisitor))
+        mvc.perform(get("/api/appliances").cookie(otherVisitor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
 
         mvc.perform(get("/api/appliances/{id}", id)
-                        .session(otherVisitor))
+                        .cookie(otherVisitor))
                 .andExpect(status().isNotFound());
 
         mvc.perform(put("/api/appliances/{id}", id)
-                        .session(otherVisitor)
+                        .cookie(otherVisitor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -117,7 +118,7 @@ class ApplianceApiTest {
                 .andExpect(status().isNotFound());
 
         mvc.perform(post("/api/appliances/{id}/calculate", id)
-                        .session(otherVisitor)
+                        .cookie(otherVisitor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -128,15 +129,14 @@ class ApplianceApiTest {
                 .andExpect(status().isNotFound());
 
         mvc.perform(delete("/api/appliances/{id}", id)
-                        .session(otherVisitor))
+                        .cookie(otherVisitor))
                 .andExpect(status().isNotFound());
 
-        // A request without the owner's session cannot access it either.
         mvc.perform(get("/api/appliances/{id}", id))
                 .andExpect(status().isNotFound());
 
-        // Failed attempts must not change or remove the owner's record.
-        mvc.perform(get("/api/appliances/{id}", id).session(owner))
+        // The owner's record must remain unchanged.
+        mvc.perform(get("/api/appliances/{id}", id).cookie(owner))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Heater"))
                 .andExpect(jsonPath("$.powerWatts").value(2000));
@@ -145,7 +145,7 @@ class ApplianceApiTest {
     @Test
     void rejectsNegativePower() throws Exception {
         mvc.perform(post("/api/appliances")
-                        .session(new MockHttpSession())
+                        .cookie(newVisitor())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -162,7 +162,7 @@ class ApplianceApiTest {
                         "/api/appliances/{id}/calculate",
                         UUID.randomUUID()
                 )
-                        .session(new MockHttpSession())
+                        .cookie(newVisitor())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -173,9 +173,22 @@ class ApplianceApiTest {
                 .andExpect(status().isNotFound());
     }
 
-    private String createAppliance(MockHttpSession session) throws Exception {
+    private Cookie newVisitor() throws Exception {
+        Cookie cookie = mvc.perform(get("/api/appliances"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0))
+                .andReturn()
+                .getResponse()
+                .getCookie("WATTWISE_SESSION");
+
+        assertNotNull(cookie, "The server must issue a visitor cookie");
+
+        return cookie;
+    }
+
+    private String createAppliance(Cookie cookie) throws Exception {
         String body = mvc.perform(post("/api/appliances")
-                        .session(session)
+                        .cookie(cookie)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {

@@ -89,6 +89,12 @@
             <scope>test</scope>
         </dependency>
 
+	    <!-- Store visitor sessions in PostgreSQL -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-session-jdbc</artifactId>
+        </dependency>
+
     </dependencies>
 
     <build>
